@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shirur Smart City – AI Integrated Command & Control Center (AI-ICCC)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            municipal: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+              navy: '#0b1120',
+              card: '#1e293b',
+              border: '#334155'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Leaflet GIS CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- TOP HEADER / BRANDING BAR -->
+  <header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 lg:px-6 shrink-0 z-30">
+    <div class="flex items-center space-x-3">
+      <!-- Municipal Emblem / Logo -->
+      <div class="w-10 h-10 rounded-full bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-lg shadow-inner">
+        🏛️
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 id="muni-title" class="font-extrabold text-sm lg:text-base tracking-wider text-emerald-400 uppercase">
+            SHIRUR NAGAR PARISHAD
+          </h1>
+          <span class="text-xs bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2 py-0.5 rounded font-mono font-medium">
+            AI-ICCC
+          </span>
+        </div>
+        <p id="muni-tagline" class="text-xs text-slate-400 hidden sm:block">
+          CLEANER | SMARTER | GREENER | SAFER SHIRUR
+        </p>
+      </div>
+    </div>
+
+    <!-- Live Telemetry Health Indicators & Controls -->
+    <div class="flex items-center space-x-3 lg:space-x-5 text-xs">
+      <!-- Wialon Status Indicator -->
+      <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 border border-slate-700/80 px-3 py-1.5 rounded-lg shadow-sm">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-slate-400">Wialon GPS:</span>
+        <span id="wialon-badge" class="font-semibold text-emerald-400">CONNECTED</span>
+      </div>
+
+      <!-- Live IST Clock -->
+      <div class="hidden lg:flex items-center space-x-1.5 text-slate-300 font-mono bg-slate-800/40 px-2.5 py-1 rounded border border-slate-800">
+        <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+        <span id="live-clock">--:--:-- IST</span>
+      </div>
+
+      <!-- Emergency Helpline -->
+      <a href="tel:02137222123" class="hidden xl:flex items-center space-x-1 text-amber-400 hover:text-amber-300 bg-amber-950/40 border border-amber-800/60 px-2.5 py-1 rounded">
+        <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+        <span>Helpline: 02137-222123</span>
+      </a>
+
+      <!-- Language Selector -->
+      <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5">
+        <button onclick="setLanguage('mr')" id="lang-mr" class="px-2 py-1 rounded text-xs font-medium bg-emerald-600 text-white">मराठी</button>
+        <button onclick="setLanguage('en')" id="lang-en" class="px-2 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">EN</button>
+        <button onclick="setLanguage('hi')" id="lang-hi" class="px-2 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">हिंदी</button>
+      </div>
+
+      <!-- Role Selector -->
+      <select id="role-selector" onchange="onRoleChange(this.value)" class="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+        <option value="SUPER_ADMIN">👑 Super Admin</option>
+        <option value="MUNICIPAL_COMMISSIONER">🏛️ Chief Officer (CO)</option>
+        <option value="HEALTH_SWM_OFFICER">🧹 Health & SWM Head</option>
+        <option value="FLEET_MANAGER">🚛 Fleet Manager</option>
+        <option value="FIELD_WORKER">📱 Field Worker / Driver</option>
+        <option value="CITIZEN">👥 Citizen View</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- BODY CONTENT AREA (SIDEBAR + MAIN VIEW) -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- LEFT SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="w-64 bg-slate-900/95 border-r border-slate-800 flex flex-col justify-between shrink-0 overflow-y-auto z-20 transition-all duration-300">
+      <div class="py-3 px-2 space-y-1">
+        <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+          Command & Control
+        </div>
+        <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-white bg-emerald-600">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span data-i18n="nav_dashboard">ICCC Dashboard</span>
+        </button>
+        <button onclick="navigate('liveFleet')" id="nav-liveFleet" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i>
+          <span data-i18n="nav_liveFleet">Live Fleet Tracking</span>
+        </button>
+        <button onclick="navigate('routes')" id="nav-routes" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="route" class="w-4 h-4 text-cyan-400"></i>
+          <span data-i18n="nav_routes">Route Master</span>
+        </button>
+        <button onclick="navigate('routeOptimization')" id="nav-routeOptimization" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+          <span data-i18n="nav_routeOpt">AI Route Optimization</span>
+        </button>
+        <button onclick="navigate('geofencing')" id="nav-geofencing" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
+          <span data-i18n="nav_geofence">Geofence Control</span>
+        </button>
+
+        <div class="pt-3 px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+          Field Operations
+        </div>
+        <button onclick="navigate('vehicles')" id="nav-vehicles" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="truck" class="w-4 h-4 text-blue-400"></i>
+          <span data-i18n="nav_vehicles">Vehicles & Drivers</span>
+        </button>
+        <button onclick="navigate('smartBins')" id="nav-smartBins" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="trash-2" class="w-4 h-4 text-teal-400"></i>
+          <span data-i18n="nav_smartBins">Smart Waste Bins (IoT)</span>
+        </button>
+        <button onclick="navigate('toilets')" id="nav-toilets" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="bath" class="w-4 h-4 text-sky-400"></i>
+          <span data-i18n="nav_toilets">Public Toilets</span>
+        </button>
+        <button onclick="navigate('cleaningTasks')" id="nav-cleaningTasks" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="waves" class="w-4 h-4 text-indigo-400"></i>
+          <span data-i18n="nav_cleaning">Drains & Canals</span>
+        </button>
+
+        <div class="pt-3 px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+          Management & Governance
+        </div>
+        <button onclick="navigate('contractors')" id="nav-contractors" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="building-2" class="w-4 h-4 text-rose-400"></i>
+          <span data-i18n="nav_contractors">Contractor Performance</span>
+        </button>
+        <button onclick="navigate('billing')" id="nav-billing" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="receipt" class="w-4 h-4 text-emerald-400"></i>
+          <span data-i18n="nav_billing">Automated Billing</span>
+        </button>
+        <button onclick="navigate('complaints')" id="nav-complaints" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="message-square-warning" class="w-4 h-4 text-amber-400"></i>
+          <span data-i18n="nav_complaints">Citizen Grievances</span>
+        </button>
+        <button onclick="navigate('aiAssistant')" id="nav-aiAssistant" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="bot" class="w-4 h-4 text-fuchsia-400"></i>
+          <span data-i18n="nav_ai">Shirur AI Assistant</span>
+        </button>
+        <button onclick="navigate('reports')" id="nav-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4 text-lime-400"></i>
+          <span data-i18n="nav_reports">Automated Reports</span>
+        </button>
+
+        <div class="pt-3 px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+          Portals & Apps
+        </div>
+        <button onclick="navigate('workerApp')" id="nav-workerApp" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="smartphone" class="w-4 h-4 text-orange-400"></i>
+          <span data-i18n="nav_fieldApp">Field Worker Mobile App</span>
+        </button>
+        <button onclick="navigate('citizenPortal')" id="nav-citizenPortal" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="globe" class="w-4 h-4 text-sky-400"></i>
+          <span data-i18n="nav_citizenPortal">Citizen Public Portal</span>
+        </button>
+        <button onclick="navigate('settings')" id="nav-settings" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
+          <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
+          <span data-i18n="nav_settings">Settings & Wialon API</span>
+        </button>
+      </div>
+
+      <!-- User Session Footer -->
+      <div class="p-3 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-white text-[11px]">
+            SNP
+          </div>
+          <div>
+            <div id="session-user" class="font-medium text-slate-200">Dr. Prashant Patil</div>
+            <div id="session-role" class="text-[10px] text-emerald-400 font-mono">SUPER ADMIN</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEW CONTAINER -->
+    <main id="main-content" class="flex-1 flex flex-col overflow-y-auto bg-slate-950 p-4 lg:p-6 relative">
+      <!-- Dynamic Views rendered by app.js -->
+    </main>
+
+  </div>
+
+  <!-- VEHICLE DETAIL DRAWER / POPUP MODAL -->
+  <div id="vehicle-drawer" class="hidden fixed inset-y-0 right-0 w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 flex flex-col p-5 overflow-y-auto transition-transform duration-300">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">🚛</span>
+        <h3 id="drawer-veh-num" class="font-bold text-base text-white">MH-12-SN-1001</h3>
+      </div>
+      <button onclick="closeVehicleDrawer()" class="text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div id="drawer-content" class="mt-4 space-y-4 text-xs">
+      <!-- Injected by app.js -->
+    </div>
+  </div>
+
+  <!-- TOAST ALERTS NOTIFICATIONS CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50 max-w-sm"></div>
+
+  <!-- Application Logic -->
+  <script src="js/translations.js"></script><script src="js/state.js"></script><script src="js/map.js"></script><script src="js/views_core.js"></script><script src="js/views_ops.js"></script><script src="js/views_gov.js"></script><script src="js/app.js"></script>
+</body>
+</html>
