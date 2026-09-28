@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <clipPath id="shirurEmblemClip">
+      <circle cx="250" cy="250" r="246" />
+    </clipPath>
+  </defs>
+  <circle cx="250" cy="250" r="248" fill="#1b365d" stroke="#c69214" stroke-width="4"/>
+  <image href="shirur-nagar-parishad-logo.png" x="0" y="0" width="500" height="500" clip-path="url(#shirurEmblemClip)" />
+</svg>

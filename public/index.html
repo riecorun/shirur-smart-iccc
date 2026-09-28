@@ -1,241 +1,489 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="mr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shirur Smart City – AI Integrated Command & Control Center (AI-ICCC)</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            municipal: {
-              50: '#f0fdf4',
-              100: '#dcfce7',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-              800: '#166534',
-              900: '#14532d',
-              navy: '#0b1120',
-              card: '#1e293b',
-              border: '#334155'
-            }
-          }
-        }
-      }
-    }
-  </script>
-  <!-- Leaflet GIS CSS & JS -->
+  <title>शिरूर नगरपरिषद (SHIRUR NAGAR PARISHAD) | AI-ENABLED INTEGRATED COMMAND & CONTROL CENTER (AI-ICCC)</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- High-Resolution Satellite & Leaflet Fallback Engine -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Socket.IO Client -->
-  <script src="/socket.io/socket.io.js"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css">
+
+  <!-- Dashboard Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Favicon / Municipal Logo -->
+  <link rel="icon" type="image/png" href="assets/shirur-nagar-parishad-logo.png">
 </head>
-<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+<body>
 
-  <!-- TOP HEADER / BRANDING BAR -->
-  <header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 lg:px-6 shrink-0 z-30">
-    <div class="flex items-center space-x-3">
-      <!-- Municipal Emblem / Logo -->
-      <div class="w-10 h-10 rounded-full bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-lg shadow-inner">
-        🏛️
-      </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <h1 id="muni-title" class="font-extrabold text-sm lg:text-base tracking-wider text-emerald-400 uppercase">
-            SHIRUR NAGAR PARISHAD
-          </h1>
-          <span class="text-xs bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2 py-0.5 rounded font-mono font-medium">
-            AI-ICCC
-          </span>
-        </div>
-        <p id="muni-tagline" class="text-xs text-slate-400 hidden sm:block">
-          CLEANER | SMARTER | GREENER | SAFER SHIRUR
-        </p>
-      </div>
-    </div>
-
-    <!-- Live Telemetry Health Indicators & Controls -->
-    <div class="flex items-center space-x-3 lg:space-x-5 text-xs">
-      <!-- Wialon Status Indicator -->
-      <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 border border-slate-700/80 px-3 py-1.5 rounded-lg shadow-sm">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-400">Wialon GPS:</span>
-        <span id="wialon-badge" class="font-semibold text-emerald-400">CONNECTED</span>
-      </div>
-
-      <!-- Live IST Clock -->
-      <div class="hidden lg:flex items-center space-x-1.5 text-slate-300 font-mono bg-slate-800/40 px-2.5 py-1 rounded border border-slate-800">
-        <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
-        <span id="live-clock">--:--:-- IST</span>
-      </div>
-
-      <!-- Emergency Helpline -->
-      <a href="tel:02137222123" class="hidden xl:flex items-center space-x-1 text-amber-400 hover:text-amber-300 bg-amber-950/40 border border-amber-800/60 px-2.5 py-1 rounded">
-        <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
-        <span>Helpline: 02137-222123</span>
-      </a>
-
-      <!-- Language Selector -->
-      <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-0.5">
-        <button onclick="setLanguage('mr')" id="lang-mr" class="px-2 py-1 rounded text-xs font-medium bg-emerald-600 text-white">मराठी</button>
-        <button onclick="setLanguage('en')" id="lang-en" class="px-2 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">EN</button>
-        <button onclick="setLanguage('hi')" id="lang-hi" class="px-2 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">हिंदी</button>
-      </div>
-
-      <!-- Role Selector -->
-      <select id="role-selector" onchange="onRoleChange(this.value)" class="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
-        <option value="SUPER_ADMIN">👑 Super Admin</option>
-        <option value="MUNICIPAL_COMMISSIONER">🏛️ Chief Officer (CO)</option>
-        <option value="HEALTH_SWM_OFFICER">🧹 Health & SWM Head</option>
-        <option value="FLEET_MANAGER">🚛 Fleet Manager</option>
-        <option value="FIELD_WORKER">📱 Field Worker / Driver</option>
-        <option value="CITIZEN">👥 Citizen View</option>
-      </select>
-    </div>
-  </header>
-
-  <!-- BODY CONTENT AREA (SIDEBAR + MAIN VIEW) -->
-  <div class="flex flex-1 overflow-hidden">
-
-    <!-- LEFT SIDEBAR NAVIGATION -->
-    <aside id="sidebar" class="w-64 bg-slate-900/95 border-r border-slate-800 flex flex-col justify-between shrink-0 overflow-y-auto z-20 transition-all duration-300">
-      <div class="py-3 px-2 space-y-1">
-        <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          Command & Control
-        </div>
-        <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-white bg-emerald-600">
-          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-          <span data-i18n="nav_dashboard">ICCC Dashboard</span>
-        </button>
-        <button onclick="navigate('liveFleet')" id="nav-liveFleet" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i>
-          <span data-i18n="nav_liveFleet">Live Fleet Tracking</span>
-        </button>
-        <button onclick="navigate('routes')" id="nav-routes" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="route" class="w-4 h-4 text-cyan-400"></i>
-          <span data-i18n="nav_routes">Route Master</span>
-        </button>
-        <button onclick="navigate('routeOptimization')" id="nav-routeOptimization" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
-          <span data-i18n="nav_routeOpt">AI Route Optimization</span>
-        </button>
-        <button onclick="navigate('geofencing')" id="nav-geofencing" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
-          <span data-i18n="nav_geofence">Geofence Control</span>
-        </button>
-
-        <div class="pt-3 px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          Field Operations
-        </div>
-        <button onclick="navigate('vehicles')" id="nav-vehicles" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="truck" class="w-4 h-4 text-blue-400"></i>
-          <span data-i18n="nav_vehicles">Vehicles & Drivers</span>
-        </button>
-        <button onclick="navigate('smartBins')" id="nav-smartBins" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="trash-2" class="w-4 h-4 text-teal-400"></i>
-          <span data-i18n="nav_smartBins">Smart Waste Bins (IoT)</span>
-        </button>
-        <button onclick="navigate('toilets')" id="nav-toilets" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="bath" class="w-4 h-4 text-sky-400"></i>
-          <span data-i18n="nav_toilets">Public Toilets</span>
-        </button>
-        <button onclick="navigate('cleaningTasks')" id="nav-cleaningTasks" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="waves" class="w-4 h-4 text-indigo-400"></i>
-          <span data-i18n="nav_cleaning">Drains & Canals</span>
-        </button>
-
-        <div class="pt-3 px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          Management & Governance
-        </div>
-        <button onclick="navigate('contractors')" id="nav-contractors" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="building-2" class="w-4 h-4 text-rose-400"></i>
-          <span data-i18n="nav_contractors">Contractor Performance</span>
-        </button>
-        <button onclick="navigate('billing')" id="nav-billing" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="receipt" class="w-4 h-4 text-emerald-400"></i>
-          <span data-i18n="nav_billing">Automated Billing</span>
-        </button>
-        <button onclick="navigate('complaints')" id="nav-complaints" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="message-square-warning" class="w-4 h-4 text-amber-400"></i>
-          <span data-i18n="nav_complaints">Citizen Grievances</span>
-        </button>
-        <button onclick="navigate('aiAssistant')" id="nav-aiAssistant" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="bot" class="w-4 h-4 text-fuchsia-400"></i>
-          <span data-i18n="nav_ai">Shirur AI Assistant</span>
-        </button>
-        <button onclick="navigate('reports')" id="nav-reports" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="file-spreadsheet" class="w-4 h-4 text-lime-400"></i>
-          <span data-i18n="nav_reports">Automated Reports</span>
-        </button>
-
-        <div class="pt-3 px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          Portals & Apps
-        </div>
-        <button onclick="navigate('workerApp')" id="nav-workerApp" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="smartphone" class="w-4 h-4 text-orange-400"></i>
-          <span data-i18n="nav_fieldApp">Field Worker Mobile App</span>
-        </button>
-        <button onclick="navigate('citizenPortal')" id="nav-citizenPortal" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="globe" class="w-4 h-4 text-sky-400"></i>
-          <span data-i18n="nav_citizenPortal">Citizen Public Portal</span>
-        </button>
-        <button onclick="navigate('settings')" id="nav-settings" class="nav-item w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white">
-          <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
-          <span data-i18n="nav_settings">Settings & Wialon API</span>
-        </button>
-      </div>
-
-      <!-- User Session Footer -->
-      <div class="p-3 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between text-xs">
-        <div class="flex items-center space-x-2">
-          <div class="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-white text-[11px]">
-            SNP
-          </div>
-          <div>
-            <div id="session-user" class="font-medium text-slate-200">Dr. Prashant Patil</div>
-            <div id="session-role" class="text-[10px] text-emerald-400 font-mono">SUPER ADMIN</div>
-          </div>
+  <!-- =========================================================================
+       Left Sidebar Navigation (Shirur Nagar Parishad)
+       ========================================================================= -->
+  <aside class="sidebar" id="mainSidebar">
+    <!-- Brand Logo -->
+    <div class="sidebar-brand">
+      <div class="brand-logo-text" style="display: flex; align-items: center; gap: 10px;">
+        <img src="assets/shirur-nagar-parishad-logo.png" alt="Shirur Nagar Parishad" style="width: 44px; height: 44px; object-fit: contain; border-radius: 50%; border: 2px solid #c69214; background: #ffffff;">
+        <div>
+          <div style="font-size: 13.5px; font-weight: 800; color: #ffffff; letter-spacing: 0.3px;">शिरूर नगरपरिषद</div>
+          <div style="font-size: 9px; font-weight: 600; color: #38bdf8; letter-spacing: 0.8px; text-transform: uppercase;">SHIRUR AI-ICCC</div>
+          <div style="font-size: 7.5px; color: #94a3b8; margin-top: 1px;">CLEANER • SMARTER • GREENER</div>
         </div>
       </div>
-    </aside>
-
-    <!-- MAIN VIEW CONTAINER -->
-    <main id="main-content" class="flex-1 flex flex-col overflow-y-auto bg-slate-950 p-4 lg:p-6 relative">
-      <!-- Dynamic Views rendered by app.js -->
-    </main>
-
-  </div>
-
-  <!-- VEHICLE DETAIL DRAWER / POPUP MODAL -->
-  <div id="vehicle-drawer" class="hidden fixed inset-y-0 right-0 w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 flex flex-col p-5 overflow-y-auto transition-transform duration-300">
-    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-      <div class="flex items-center space-x-2">
-        <span class="text-xl">🚛</span>
-        <h3 id="drawer-veh-num" class="font-bold text-base text-white">MH-12-SN-1001</h3>
-      </div>
-      <button onclick="closeVehicleDrawer()" class="text-slate-400 hover:text-white">
-        <i data-lucide="x" class="w-5 h-5"></i>
+      <button class="btn-sidebar-collapse" id="btnSidebarCollapse" title="साइडबार लपवा (Collapse Sidebar)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
       </button>
     </div>
-    <div id="drawer-content" class="mt-4 space-y-4 text-xs">
-      <!-- Injected by app.js -->
+
+    <!-- Navigation Items -->
+    <nav class="sidebar-nav">
+      <!-- Main Links -->
+      <a class="nav-item active" data-tab="dashboard">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+        </svg>
+        <span class="nav-text">मुख्य डॅशबोर्ड (Dashboard)</span>
+      </a>
+
+      <a class="nav-item" data-tab="live-fleet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+        </svg>
+        <span class="nav-text">८ वाहने थेट ट्रॅकिंग (Fleet)</span>
+      </a>
+
+      <a class="nav-item" data-tab="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span class="nav-text">दैनिक अहवाल (Reports)</span>
+      </a>
+
+      <!-- Administration Section -->
+      <div class="sidebar-section-title">ADMINISTRATION & FIELD OPERATIONS</div>
+
+      <a class="nav-item" data-tab="routes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="19" r="3"></circle>
+          <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+          <circle cx="18" cy="5" r="3"></circle>
+        </svg>
+        <span class="nav-text">कचरा संकलन मार्ग (Routes)</span>
+      </a>
+
+      <a class="nav-item" data-tab="notices">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span class="nav-text">मक्तेदार नोटीस व दंड (Notices)</span>
+      </a>
+
+      <a class="nav-item" data-tab="dumping-ground">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span class="nav-text">घनकचरा प्रकल्प (Dumping Yard)</span>
+      </a>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer" style="padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+      <div class="footer-title" style="font-size: 11px; font-weight: 700; color: #94a3b8;">शिरूर नगरपरिषद • घनकचरा विभाग</div>
+      <div style="font-size: 9.5px; color: #64748b; margin-top: 2px;">Wialon GPS Remote API Core</div>
     </div>
-  </div>
+  </aside>
 
-  <!-- TOAST ALERTS NOTIFICATIONS CONTAINER -->
-  <div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50 max-w-sm"></div>
+  <!-- Sidebar Mobile / Tablet Overlay Backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-  <!-- Application Logic -->
-  <script src="js/translations.js"></script><script src="js/state.js"></script><script src="js/map.js"></script><script src="js/views_core.js"></script><script src="js/views_ops.js"></script><script src="js/views_gov.js"></script><script src="js/app.js"></script>
+  <!-- =========================================================================
+       Main Content Wrapper
+       ========================================================================= -->
+  <main class="main-wrapper">
+
+    <!-- Top Header Bar (STACKED 2-TIER LAYOUT) -->
+    <header class="top-header dashboard-header" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); border-bottom: 2px solid #334155;">
+      
+      <!-- TOP BANNER: Municipality Branding & Live Status -->
+      <div class="header-top-banner" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <img src="assets/shirur-nagar-parishad-logo.png" alt="Shirur Nagar Parishad Logo" style="height: 52px; width: 52px; object-fit: contain; border-radius: 50%; border: 2px solid #f59e0b; background: #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+          <div>
+            <h1 class="header-title" style="font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; margin: 0; line-height: 1.2;">
+              SHIRUR NAGAR PARISHAD
+            </h1>
+            <h2 class="header-subtitle" style="font-size: 12px; font-weight: 600; color: #38bdf8; letter-spacing: 0.5px; margin: 2px 0 0 0;">
+              AI-ENABLED INTEGRATED COMMAND &amp; CONTROL CENTER (SHIRUR AI-ICCC)
+            </h2>
+            <div style="font-size: 9.5px; color: #cbd5e1; letter-spacing: 1px; margin-top: 2px; text-transform: uppercase;">
+              CLEANER | SMARTER | GREENER | SAFER SHIRUR
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT SIDE: Telemetry Status -->
+        <div class="header-right-telemetry" style="display: flex; align-items: center; gap: 14px;">
+          <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; text-align: right;">
+            <div style="font-size: 10px; color: #94a3b8; font-weight: 600;">WIALON GPS</div>
+            <div style="font-size: 12px; font-weight: 800; color: #10b981;" id="headerWialonState">🟢 CONNECTED</div>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; text-align: right;">
+            <div style="font-size: 10px; color: #94a3b8; font-weight: 600;">LIVE VEHICLES</div>
+            <div style="font-size: 12px; font-weight: 800; color: #38bdf8;" id="headerLiveVehicles">8 UNITS</div>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; text-align: right;">
+            <div style="font-size: 10px; color: #94a3b8; font-weight: 600;">LAST SYNC</div>
+            <div style="font-size: 12px; font-weight: 700; color: #f1f5f9;" id="headerLastSync">--:--:--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM TOOLBAR ROW -->
+      <div class="header-toolbar-row" style="padding: 8px 20px; display: flex; align-items: center; justify-content: space-between;">
+        <div class="header-left" style="display: flex; align-items: center; gap: 12px;">
+          <!-- Sidebar Toggle -->
+          <button class="btn-sidebar-toggle" id="btnSidebarToggle" title="Toggle Navigation Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+
+          <!-- Vehicle Switcher -->
+          <div class="vehicle-selector-wrapper">
+            <label for="vehicleSelect" id="labelVehicleSelect">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/>
+              </svg>
+              वाहन:
+            </label>
+            <select id="vehicleSelect" class="vehicle-select">
+              <option value="">सर्व ८ वाहने (All 8 Fleet Units)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Live Indicator Pill -->
+          <div class="live-status-pill" id="liveStatusPill">
+            <span class="live-status-dot success" id="liveStatusDot"></span>
+            <span class="live-status-text" id="liveStatusText">LIVE</span>
+            <span class="live-status-divider">|</span>
+            <span class="live-status-time" id="liveStatusTime">--:--</span>
+          </div>
+
+          <!-- Manual Refresh -->
+          <button class="btn-live-refresh" id="btnManualRefresh" title="थेट Wialon GPS डेटा रिफ्रेश करा">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+
+          <!-- WhatsApp Daily Report -->
+          <button class="btn btn-sm" id="btnOpenWhatsAppModal" title="दैनिक अहवाल काढा व WhatsApp वर पाठवा" onclick="window.whatsappReportService.openDailyReportModal(document.getElementById('dashboardDatePicker')?.value, true)" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; background-color: #25d366; color: #ffffff; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px;">
+            WhatsApp अहवाल
+          </button>
+
+          <!-- Dumping Trip Excel Report -->
+          <button class="btn btn-sm btn-success" id="btnOpenDumpingReport" title="शिरूर डंपिंग ट्रिप अहवाल (Excel) डाउनलोड करा" onclick="window.geofenceTripService.openReportModal(new Date())" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; background: #059669; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px;">
+            डंपिंग ट्रिप Excel
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Main Body -->
+    <div class="dashboard-content" style="padding: 16px 20px;">
+
+      <!-- =======================================================================
+           REQUIREMENT 8: LIVE FLEET DASHBOARD CARDS (7 DYNAMIC CARDS)
+           TOTAL VEHICLES (8), LIVE GPS, MOVING, STOPPED, OFFLINE, ROUTE DEVIATION, GEOFENCE ALERTS
+           ======================================================================= -->
+      <section class="fleet-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        
+        <!-- CARD 1: TOTAL VEHICLES -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #2563eb;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">TOTAL VEHICLES</div>
+          <div style="font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 4px;" id="statTotalVehicles">8</div>
+          <div style="font-size: 10px; color: #2563eb; font-weight: 600; margin-top: 2px;">अधिकृत शिरूर फ्लीट</div>
+        </div>
+
+        <!-- CARD 2: LIVE GPS -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #10b981;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">LIVE GPS</div>
+          <div style="font-size: 22px; font-weight: 800; color: #10b981; margin-top: 4px;" id="statLiveGps">8</div>
+          <div style="font-size: 10px; color: #10b981; font-weight: 600; margin-top: 2px;">सक्रिय सिग्नल</div>
+        </div>
+
+        <!-- CARD 3: MOVING -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #059669;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">MOVING</div>
+          <div style="font-size: 22px; font-weight: 800; color: #059669; margin-top: 4px;" id="statMoving">0</div>
+          <div style="font-size: 10px; color: #059669; font-weight: 600; margin-top: 2px;">मार्गस्थ वाहने</div>
+        </div>
+
+        <!-- CARD 4: STOPPED -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #ef4444;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">STOPPED</div>
+          <div style="font-size: 22px; font-weight: 800; color: #ef4444; margin-top: 4px;" id="statStopped">8</div>
+          <div style="font-size: 10px; color: #ef4444; font-weight: 600; margin-top: 2px;">थांबलेली वाहने</div>
+        </div>
+
+        <!-- CARD 5: OFFLINE -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #64748b;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">OFFLINE</div>
+          <div style="font-size: 22px; font-weight: 800; color: #64748b; margin-top: 4px;" id="statOffline">0</div>
+          <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 2px;">सिग्नल नसलेली</div>
+        </div>
+
+        <!-- CARD 6: ROUTE DEVIATION -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #f59e0b;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">ROUTE DEVIATION</div>
+          <div style="font-size: 22px; font-weight: 800; color: #f59e0b; margin-top: 4px;" id="statRouteDeviation">0</div>
+          <div style="font-size: 10px; color: #f59e0b; font-weight: 600; margin-top: 2px;">&gt; 150m मार्ग विचलन</div>
+        </div>
+
+        <!-- CARD 7: GEOFENCE ALERTS -->
+        <div class="card" style="padding: 12px 14px; border-left: 4px solid #8b5cf6;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">GEOFENCE ALERTS</div>
+          <div style="font-size: 22px; font-weight: 800; color: #8b5cf6; margin-top: 4px;" id="statGeofenceAlerts">0</div>
+          <div style="font-size: 10px; color: #8b5cf6; font-weight: 600; margin-top: 2px;">सीमा उल्लंघन</div>
+        </div>
+
+      </section>
+
+      <!-- =======================================================================
+           REQUIREMENT 1, 2 & 9: GOOGLE SATELLITE LIVE MAP (PRIMARY COMPONENT)
+           ======================================================================= -->
+      <section class="map-primary-section" style="margin-bottom: 20px;">
+        <div class="card map-card" style="overflow: hidden; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+          <div class="card-header" style="background: #f8fafc; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">🛰️</span>
+              <h2 class="card-title" id="titleLiveMap" style="font-size: 15px; font-weight: 700; color: #1e293b; margin: 0;">
+                GOOGLE SATELLITE LIVE FLEET MAP – SHIRUR NAGAR PARISHAD
+              </h2>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 600; background: #e0f2fe; color: #0284c7; padding: 3px 8px; border-radius: 9999px;">
+                ८ वाहने • थेट उपग्रह नकाशा
+              </span>
+            </div>
+          </div>
+
+          <!-- Map Container -->
+          <div style="position: relative; width: 100%; height: 520px; background: #1a202c;">
+            <div id="leafletMap" style="width: 100%; height: 100%;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Realtime Vehicle Banner (Active when specific vehicle selected) -->
+      <section class="vehicle-banner" id="vehicleLiveBanner" style="display: none; margin-bottom: 16px;">
+        <div class="vehicle-banner-left">
+          <div class="vehicle-banner-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#ffffff">
+              <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="vehicle-banner-title">
+              <span id="bannerVehicleName">S MH 12 QW 8149 (407)</span>
+              <span class="vehicle-badge-status" id="bannerStatusBadge">STOPPED</span>
+            </div>
+            <div class="vehicle-banner-sub" id="bannerSubText">चालक: कैलास पवार (+91 98221 10001)</div>
+          </div>
+        </div>
+
+        <div class="vehicle-banner-right">
+          <div class="vehicle-stat-pill">
+            <div class="vehicle-stat-label">Current Speed</div>
+            <div class="vehicle-stat-val" id="bannerSpeedVal">0 km/h</div>
+          </div>
+          <div class="vehicle-stat-pill">
+            <div class="vehicle-stat-label">Fuel Level</div>
+            <div class="vehicle-stat-val" id="bannerFuelVal">DATA NOT AVAILABLE</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Telemetry Details Card for Selected Vehicle -->
+      <section class="card vehicle-details-card" style="margin-bottom: 20px;">
+        <div class="card-header" style="background:#f8fafc; padding:10px 16px; border-bottom:1px solid #e2e8f0;">
+          <h2 class="card-title" id="titleVehicleDetails" style="font-size:14px; font-weight:700; color:#1e293b;">
+            वाहन तांत्रिक व टेलिमेट्री तपशील (Selected Vehicle Details)
+          </h2>
+        </div>
+
+        <div class="detail-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 16px;">
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">⚡ Live Speed</span>
+            <div class="detail-value" id="detailSpeed" style="font-size:15px; font-weight:700; color:#0f172a; margin-top:2px;">0 km/h</div>
+          </div>
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">🔑 Ignition (ACC)</span>
+            <div class="detail-value" id="detailIgnition" style="font-size:15px; font-weight:700; color:#ef4444; margin-top:2px;">🔴 OFF</div>
+          </div>
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">🔋 Battery Voltage</span>
+            <div class="detail-value" id="detailBattery" style="font-size:15px; font-weight:700; color:#0f172a; margin-top:2px;">12.8 V</div>
+          </div>
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">⛽ Fuel Level</span>
+            <div class="detail-value" id="detailFuel" style="font-size:15px; font-weight:700; color:#0f172a; margin-top:2px;">DATA NOT AVAILABLE</div>
+          </div>
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">🛣️ Today's Distance</span>
+            <div class="detail-value" id="detailMileage" style="font-size:15px; font-weight:700; color:#0f172a; margin-top:2px;">0 km</div>
+          </div>
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">👤 Assigned Driver</span>
+            <div class="detail-value" id="detailDriver" style="font-size:14px; font-weight:700; color:#0f172a; margin-top:2px;">कैलास पवार</div>
+          </div>
+          <div class="detail-item" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+            <span class="detail-label" style="font-size:11px; color:#64748b; font-weight:600;">⏱️ Last GPS Ping</span>
+            <div class="detail-value" id="detailLastPing" style="font-size:13px; font-weight:600; color:#64748b; margin-top:2px;">काही सेकंदांपूर्वी</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Routes Section -->
+      <section class="card route-controls-card" style="margin-bottom: 20px;">
+        <div class="card-header" style="background:#f8fafc; padding:10px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2 class="card-title" style="font-size:15px; font-weight:700; color:#1e293b; margin:0;">
+              कचरा संकलन मार्ग व्यवस्थापन व थेट संचलन (Shirur Municipal Routes)
+            </h2>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">शिरूर प्रभाग व कुंड्या संचलन प्रगती</div>
+          </div>
+          <select id="routeSelect" class="form-select" style="padding: 6px 12px; font-size: 12px; font-weight: 600;">
+            <option value="route_shirur_bazar">शिरूर शहर मुख्य बाजारपेठ मार्ग (Route 01)</option>
+          </select>
+        </div>
+
+        <div style="padding: 16px;">
+          <div class="waypoints-grid" id="waypointsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Notices Section -->
+      <section class="card" style="margin-bottom: 20px;">
+        <div class="card-header" style="background:#f8fafc; padding:10px 16px; border-bottom:1px solid #e2e8f0;">
+          <h2 class="card-title" style="font-size:15px; font-weight:700; color:#991b1b; margin:0;">
+            मक्तेदार ऑटोमेशन नोटीस व दंड प्रणाली (Contractor SLA Penalty Notices)
+          </h2>
+        </div>
+        <div style="padding: 16px;" id="noticesListContainer">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       AI Copilot Side-Panel & Chatbot (शिरूर नगरपरिषद AI फ्लीट सहाय्यक)
+       ========================================================================= -->
+  <aside class="ai-sidebar-panel" id="aiSidebarPanel">
+    <div class="ai-panel-header" style="background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%);">
+      <div class="ai-header-left" style="display: flex; align-items: center; gap: 10px;">
+        <img src="assets/shirur-nagar-parishad-logo.png" alt="Shirur Logo" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #f59e0b; background: #fff;">
+        <div>
+          <div class="ai-header-title" style="font-weight: 800; font-size: 14px;">शिरूर नगरपरिषद AI Copilot</div>
+          <div class="ai-status-indicator" style="font-size: 11px;">
+            <span class="ai-status-pulse"></span>
+            सक्रिय व मदतीसाठी सज्ज (Online)
+          </div>
+        </div>
+      </div>
+      <button class="btn-close-ai" id="btnCloseAiPanel" title="Close" onclick="window.aiCopilot.togglePanel()">&times;</button>
+    </div>
+
+    <!-- Quick Suggestion Chips -->
+    <div class="ai-quick-chips-wrapper" style="padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 6px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+      <button class="ai-quick-chip" onclick="window.aiCopilot.sendQuickPrompt('सध्या कोणत्या गाड्या live आहेत?')">🟢 Live धावणारी वाहने</button>
+      <button class="ai-quick-chip" onclick="window.aiCopilot.sendQuickPrompt('S MH 12 XM 6994 कुठे आहे?')">📍 S MH 12 XM 6994 स्थान</button>
+      <button class="ai-quick-chip" onclick="window.aiCopilot.sendQuickPrompt('कोणती वाहने थांबलेली आहेत?')">🔴 थांबलेली वाहने</button>
+      <button class="ai-quick-chip" onclick="window.aiCopilot.sendQuickPrompt('एकूण वाहने किती आहेत?')">📊 ८ फ्लीट माहिती</button>
+      <button class="ai-quick-chip" onclick="window.aiCopilot.sendQuickPrompt('शिरूर कचरा डेपो फेऱ्या')">♻️ कचरा डेपो फेऱ्या</button>
+    </div>
+
+    <!-- Chat Messages Stream -->
+    <div class="ai-chat-messages" id="aiChatMessages" style="padding: 14px; overflow-y: auto; flex: 1;">
+      <div class="chat-bubble chat-msg-ai">
+        <div class="chat-sender-name">🤖 शिरूर नगरपरिषद AI</div>
+        <div class="chat-bubble-content">
+          नमस्कार! मी <b>शिरूर नगरपरिषद AI सहाय्यक (SHIRUR AI-ICCC)</b> आहे. शिरूर नगरपरिषदेच्या अधिकृत ८ कचरा संकलन गाड्या (MH-12), थेट GPS स्थान, वेग, चालक माहिती, किंवा डंपिंग यार्ड फेऱ्यांबद्दल मला थेट विचारा!
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Input Bar -->
+    <div class="ai-chat-input-bar">
+      <input type="text" id="aiChatInput" class="ai-input-field" placeholder="मराठी किंवा इंग्रजीत प्रश्न विचारा...">
+      <button class="btn-ai-mic" id="btnAiMic" title="मायक्रोफोन (बोलून विचारा)" onclick="window.aiCopilot.toggleVoiceRecognition()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
+      <button class="btn-ai-send" id="btnAiSend" title="Send" onclick="window.aiCopilot.handleSendMessage()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Floating Button to open AI at bottom-right -->
+  <button class="ai-floating-btn" id="btnFloatAi" title="शिरूर नगरपरिषद AI Copilot उघडा" onclick="window.aiCopilot.togglePanel()">
+    <span class="ai-floating-pulse"></span>
+    <img src="assets/shirur-nagar-parishad-logo.png" alt="AI" style="width: 24px; height: 24px; border-radius: 50%; object-fit: contain; background: #fff;">
+    <span>AI Copilot सहाय्यक</span>
+    <span class="ai-float-badge">Online</span>
+  </button>
+
+  <!-- Scripts -->
+  <script src="js/xlsx.full.min.js"></script>
+  <script src="js/wialon-api.js"></script>
+  <script src="js/central-reporting.js"></script>
+  <script src="js/geofence-trips.js"></script>
+  <script src="js/whatsapp-reports.js"></script>
+  <script src="js/notices.js"></script>
+  <script src="js/routes.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/ai-copilot.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
