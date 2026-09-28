@@ -27,7 +27,7 @@ class DashboardMap {
     this.isInitialized = false;
     this.isGoogleMapsLoaded = false;
     this.activeMapType = 'satellite'; // Default: Satellite
-    this.googleMapsApiKey = localStorage.getItem('google_maps_api_key') || window.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || window.GOOGLE_MAPS_API_KEY || '';
+    this.googleMapsApiKey = localStorage.getItem('google_maps_api_key') || window.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || window.GOOGLE_MAPS_API_KEY || 'AIzaSyAB1dNlRn1ow-b_GJH6IRL5pK7lBuWFEoY';
 
     // Shirur Nagar Parishad Municipal Coordinates
     this.shirurCenter = { lat: 18.8260, lng: 74.3789 };
@@ -114,6 +114,19 @@ class DashboardMap {
         resolve();
         return;
       }
+
+      // Handle Google Maps Authentication / Billing Failure
+      window.gm_authFailure = () => {
+        console.warn('[Google Maps] Authentication or Billing is pending on this Google Maps Key. Switching to High-Resolution Satellite Canvas.');
+        this.isGoogleMapsLoaded = false;
+        const container = document.getElementById('leafletMap');
+        if (container) {
+          container.innerHTML = '';
+          this.initSatelliteCanvasFallback(container);
+          this.renderBillingNoticeBanner(container);
+        }
+      };
+
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places,geometry`;
       script.async = true;
@@ -122,10 +135,14 @@ class DashboardMap {
         this.isGoogleMapsLoaded = true;
         resolve();
       };
-      script.onerror = () => reject(new Error('Google Maps script failed to load.'));
+      script.onerror = () => {
+        console.warn('Google Maps script network load failed. Switching to Satellite Canvas.');
+        reject(new Error('Google Maps script failed to load.'));
+      };
       document.head.appendChild(script);
     });
   }
+
 
   /**
    * Initialize Native Google Maps in SATELLITE mode
@@ -540,6 +557,31 @@ class DashboardMap {
         }
       });
     }
+  }
+
+  /**
+   * Notice Banner when Google Maps API Key requires Google Cloud Project Billing
+   */
+  renderBillingNoticeBanner(container) {
+    if (document.querySelector('.gmap-billing-banner')) return;
+    const banner = document.createElement('div');
+    banner.className = 'gmap-billing-banner';
+    banner.style.cssText = 'position:absolute;top:10px;left:10px;right:10px;z-index:999;background:rgba(15,23,42,0.92);backdrop-filter:blur(8px);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;color:#f8fafc;box-shadow:0 4px 14px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">ℹ️</span>
+        <div>
+          <div style="font-weight:700;color:#fbbf24;">Google Maps API Key जोडली आहे, परंतु Google Cloud Billing सक्रिय करणे आवश्यक आहे.</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px;">सध्या हाय-रिझोल्यूशन सॅटेलाइट मॅप (Satellite Imagery Engine) द्वारे सर्व ८ वाहने व शिरूरचे मार्ग सुरळीत सुरू आहेत. गुगल मॅप्स पूर्ण सुरू करण्यासाठी आपल्या गुगल क्लाउड खात्यात बिलिंग लिंक करा.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <a href="https://console.cloud.google.com/project/_/billing/enable" target="_blank" rel="noopener noreferrer" style="background:#f59e0b;color:#0f172a;padding:5px 12px;border-radius:5px;font-weight:700;text-decoration:none;font-size:11px;">Enable Billing ↗</a>
+        <button onclick="this.parentElement.parentElement.remove()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1;">&times;</button>
+      </div>
+    `;
+    container.style.position = 'relative';
+    container.appendChild(banner);
   }
 
   /**

@@ -64,16 +64,20 @@ io.on('connection', socket => {
 wialonService.setSocketServer(io);
 wialonService.startLivePolling(10); // 10-second live sync from Wialon API
 
-// Start Server on 0.0.0.0
-const PORT = Number(process.env.PORT) || CONFIG.port || 3000;
-const HOST = '0.0.0.0';
+// Start Server (Supports Hostinger, PaaS, and dual-stack IPv4/IPv6 localhost reverse proxies)
+const PORT = process.env.PORT || CONFIG.port || 3000;
 
-server.listen(PORT, HOST, () => {
+server.on('error', (err: any) => {
+  console.error('[SERVER ERROR]', err);
+});
+
+server.listen(PORT, () => {
   console.log('================================================================');
   console.log(`🏛️  SHIRUR NAGAR PARISHAD - AI-ICCC ENGINE ACTIVE`);
-  console.log(`🚀 Server listening on http://${HOST}:${PORT}`);
+  console.log(`🚀 Server listening on port ${PORT} (Dual-stack IPv4/IPv6)`);
   console.log(`📡 Wialon GPS Gateway: ${db.settings.wialon.connectionStatus}`);
   console.log(`🤖 AI Municipal Assistant: Online`);
   console.log(`🛰️  Real-time Vehicles: ${db.vehicles.size} units on live tracking`);
   console.log('================================================================');
 });
+

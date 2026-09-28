@@ -57,13 +57,15 @@ io.on('connection', socket => {
 // Attach socket to Wialon live GPS service and start live telemetry polling
 wialonService_1.wialonService.setSocketServer(io);
 wialonService_1.wialonService.startLivePolling(10); // 10-second live sync from Wialon API
-// Start Server on 0.0.0.0
-const PORT = Number(process.env.PORT) || config_1.CONFIG.port || 3000;
-const HOST = '0.0.0.0';
-server.listen(PORT, HOST, () => {
+// Start Server (Supports Hostinger, PaaS, and dual-stack IPv4/IPv6 localhost reverse proxies)
+const PORT = process.env.PORT || config_1.CONFIG.port || 3000;
+server.on('error', (err) => {
+    console.error('[SERVER ERROR]', err);
+});
+server.listen(PORT, () => {
     console.log('================================================================');
     console.log(`🏛️  SHIRUR NAGAR PARISHAD - AI-ICCC ENGINE ACTIVE`);
-    console.log(`🚀 Server listening on http://${HOST}:${PORT}`);
+    console.log(`🚀 Server listening on port ${PORT} (Dual-stack IPv4/IPv6)`);
     console.log(`📡 Wialon GPS Gateway: ${store_1.db.settings.wialon.connectionStatus}`);
     console.log(`🤖 AI Municipal Assistant: Online`);
     console.log(`🛰️  Real-time Vehicles: ${store_1.db.vehicles.size} units on live tracking`);
