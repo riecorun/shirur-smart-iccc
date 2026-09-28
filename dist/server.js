@@ -25,6 +25,10 @@ const io = new socket_io_1.Server(server, {
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true }));
+// Health check for Cloud / Hostinger PaaS reverse proxy
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'UP', service: 'Shirur Smart ICCC', timestamp: new Date().toISOString() });
+});
 // REST API Endpoints
 app.use('/api', apiRoutes_1.apiRouter);
 // Serve Frontend Client Single-Page Application
@@ -32,7 +36,7 @@ const publicDir = path_1.default.join(__dirname, '../public');
 app.use(express_1.default.static(publicDir));
 // Fallback to index.html for SPA routes
 app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) {
+    if (req.path.startsWith('/api') || req.path === '/health') {
         return next();
     }
     res.sendFile(path_1.default.join(publicDir, 'index.html'));
@@ -53,11 +57,13 @@ io.on('connection', socket => {
 // Attach socket to Wialon live GPS service and start live telemetry polling
 wialonService_1.wialonService.setSocketServer(io);
 wialonService_1.wialonService.startLivePolling(10); // 10-second live sync from Wialon API
-// Start Server
-server.listen(config_1.CONFIG.port, () => {
+// Start Server on 0.0.0.0
+const PORT = Number(process.env.PORT) || config_1.CONFIG.port || 3000;
+const HOST = '0.0.0.0';
+server.listen(PORT, HOST, () => {
     console.log('================================================================');
     console.log(`🏛️  SHIRUR NAGAR PARISHAD - AI-ICCC ENGINE ACTIVE`);
-    console.log(`🚀 Server listening on http://localhost:${config_1.CONFIG.port}`);
+    console.log(`🚀 Server listening on http://${HOST}:${PORT}`);
     console.log(`📡 Wialon GPS Gateway: ${store_1.db.settings.wialon.connectionStatus}`);
     console.log(`🤖 AI Municipal Assistant: Online`);
     console.log(`🛰️  Real-time Vehicles: ${store_1.db.vehicles.size} units on live tracking`);
